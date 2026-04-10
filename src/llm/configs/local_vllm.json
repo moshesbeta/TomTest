@@ -1,0 +1,9 @@
+{
+    "model_name": "Qwen2.5-72B-Instruct",
+    "api_key": "empty",
+    "api_url": "http://localhost:8000/v1",
+    "temperature": 0.6,
+    "max_tokens": 32768,
+    "top_p": 0.95,
+    "max_workers": 32
+}

@@ -1,0 +1,10 @@
+# ToMBench 数据集配置
+
+dataset: ToMBench
+path: ToMBench/test
+
+# 使用的 schema（从 ToMBench/schemas.py 导入）
+schema: MCQAnswer
+
+# 默认 prompt 方法
+default_prompt: zero_shot

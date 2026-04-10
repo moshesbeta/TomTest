@@ -1,0 +1,9 @@
+{
+    "model_name": "ernie-4.0-8k",
+    "api_key": "your-baidu-api-key",
+    "api_url": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions",
+    "temperature": 0.6,
+    "max_tokens": 8192,
+    "top_p": 0.95,
+    "max_workers": 32
+}
