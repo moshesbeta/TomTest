@@ -1,0 +1,10 @@
+# Tomato 数据集配置（与 ToMBench 目录结构一致）
+
+dataset: Tomato
+path: Tomato/test
+
+# 结构化输出 schema（Tomato/run.py 当前使用 chat 生成 + 正则解析，保留 MCQAnswer 供 runner 加载）
+schema: MCQAnswer
+
+# 默认 prompt 方法（见 Tomato/prompts.py）
+default_prompt: v2_generate

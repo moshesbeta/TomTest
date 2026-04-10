@@ -1,8 +1,0 @@
-# Transcript
-{story_block}
-
-# Question
-{question}
-
-# Options
-{options_block}

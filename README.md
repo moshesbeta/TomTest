@@ -1,176 +1,240 @@
 # TomTest
 
-基于 vLLM serve 的 Theory-of-Mind 基准评测框架，支持多数据集、多 prompt 模板的批量并行评测。
+简化评测框架 - 支持多数据集、多模型的 Theory-of-Mind 基准评测。
+
+## 设计理念
+
+基于**结构化输出**的新架构，简洁高效：
+- **新增模型时**：只需修改 `experiment_config.yaml` 中的 API 配置
+- **新增数据集时**：复用现有加载函数，只需编写自己的 `prompts.py` 和 `metrics.py`
+- **不需要复杂的字符串检查**：直接从结构化输出获取答案
+
+## 目录结构
+
+```
+TomTest/
+├── datasets/              # 数据集（已规范化）
+├── ToMBench/              # ToMBench 评测目录
+│   ├── config.yaml         # 数据集配置（固定参数）
+│   ├── prompts.py          # prompt 方法
+│   ├── metrics.py          # metrics 计算（包含二级指标）
+│   └── run.py            # ToMBench 主评测脚本
+├── results/              # 评测结果输出
+├── experiment_config.yaml  # 实验配置（LLM、repeat、路径等）
+├── src/
+│   ├── llm/               # LLMClient（支持 batch_generate_structure）
+│   ├── dataloader/        # DataLoader
+│   ├── metrics/
+│   │   ├── schemas.py     # 通用的输出 schema
+│   │   └── common.py     # 通用 metrics 计算函数
+│   └── runner.py          # 评测运行器公共函数
+├── docs/                 # 文档目录
+└── run_all.py            # 统一运行所有数据集
+```
+
+## 核心优势：结构化输出
+
+**之前**（无结构化输出）：
+- 需要复杂的正则表达式提取
+- 需要文本归一化
+- 需要处理各种输出格式
+
+**现在**（有结构化输出）：
+- 直接从对象获取答案：`result.answer`
+- 不需要字符串检查和提取
+- 代码更简洁、更可靠
+
+## 安装依赖
+
+```bash
+pip install openai datasets tqdm pyyaml
+```
 
 ## 数据集下载
 
-数据集托管于 [TomTraining/TomDatasets](https://huggingface.co/datasets/TomTraining/TomDatasets)，下载到本地 `TomDatasets/` 目录：
+数据集托管于 [TomTraining/TomDatasets](https://huggingface.co/datasets/TomTraining/TomDatasets)，下载到本地 `datasets/` 目录：
 
 ```bash
-# 方法一：huggingface_hub（推荐）
 pip install huggingface_hub
 python - <<'EOF'
 from huggingface_hub import snapshot_download
 snapshot_download(
     repo_id="TomTraining/TomDatasets",
     repo_type="dataset",
-    local_dir="TomDatasets",
+    local_dir="datasets",
 )
 EOF
 ```
 
-```bash
-# 方法二：git lfs（需要安装 git-lfs）
-git lfs install
-git clone https://huggingface.co/datasets/TomTraining/TomDatasets TomDatasets
-```
-
-下载完成后目录结构如下：
-
-```
-TomDatasets/
-├── Tomato/
-│   ├── train/
-│   └── test/
-├── ToMBench/
-│   └── test/
-├── ToMQA/
-│   ├── train/
-│   ├── validation/
-│   └── test/
-└── ...
-```
-
-## 安装依赖
-
-```bash
-pip install -r requirements.txt
-pip install datasets vllm
-```
-
 ## 快速开始
 
-### 1. 启动 vLLM serve
+### 1. 配置实验参数
 
-```bash
-vllm serve /path/to/your/model \
-    --port 8000 \
-    --tensor-parallel-size 1 \ # 1 for single GPU, 2 for two GPUs
-    --gpu-memory-utilization 0.8
+编辑 `experiment_config.yaml`：
+
+```yaml
+# LLM 配置
+llm:
+  model_name: deepseek-chat
+  api_key: ${DEEPSEEK_API_KEY}
+  api_url: https://api.deepseek.com/v1
+  temperature: 0.6
+  max_tokens: 8192
+  max_workers: 16
+  enable_thinking: False
+
+# LLM Judge 配置（可选，用于需要 judge 的数据集）
+judge:
+  model_name: deepseek-chat
+  api_key: ${DEEPSEEK_API_KEY}
+  api_url: https://api.deepseek.com/v1
+  temperature: 0.0
+  max_tokens: 4096
+
+# 实验参数
+repeats: 3
+max_samples: 0  # 0 表示使用全部样本
+
+# 路径配置
+datasets_path: datasets
+results_path: results
 ```
 
 ### 2. 运行评测
 
-**最小命令（全量 test split）：**
-
 ```bash
-python run.py \
-    --model my-model \
-    --api-url http://localhost:8000/v1
-```
+# 运行所有数据集
+python run_all.py
 
-**快速冒烟（每个 split 取 50 条）：**
-
-```bash
-python run.py \
-    --model my-model \
-    --api-url http://localhost:8000/v1 \
-    --eval-phase screen
-```
-
-**只跑指定数据集 + 指定 prompt 模板：**
-
-```bash
-python run.py \
-    --model my-model \
-    --api-url http://localhost:8000/v1 \
-    --dataset-filter Tomato ToMBench \
-    --prompt-names "Standard Zero-shot" "BDI-ToM Agent"
-```
-
-**保存每条预测结果：**
-
-```bash
-python run.py \
-    --model my-model \
-    --api-url http://localhost:8000/v1 \
-    --predictions-jsonl result/preds.jsonl
+# 或单独运行某个数据集
+python ToMBench/run.py
 ```
 
 ### 3. 查看结果
 
+评测结果保存在 `results/` 目录：
+
 | 文件 | 内容 |
 |---|---|
-| `result/results_table.md` | 汇总准确率表格（Markdown） |
-| `result/baseline.txt` | 每个 dataset/split 实时追加的 accuracy 记录 |
-| `result/experiment.log` | 每条样本的详细推理日志 |
-| `result/preds.jsonl` | 每条样本的预测 + 答案（需加 `--predictions-jsonl`） |
+| `{dataset}_{model}_{prompt_method}_{timestamp}.jsonl` | 详细预测结果（每行一个样本） |
+| `{dataset}_{model}_{prompt_method}_{timestamp}.json` | 评测指标汇总 |
 
-## 完整参数说明
+## 配置文件说明
 
-```
-python run.py --help
-```
+### 数据集配置（各数据集目录下的 `config.yaml`）
 
-| 参数 | 默认值 | 说明 |
-|---|---|---|
-| `--model` | 必填 | vllm serve 注册的模型名 |
-| `--api-url` | `http://localhost:8000/v1` | vllm serve 地址 |
-| `--api-key` | `not-needed` | API Key（vllm 本地部署无需验证） |
-| `--model-tag` | 同 `--model` | 结果文件中显示的模型名 |
-| `--dataset-root` | `TomDatasets` | 数据集根目录 |
-| `--prompt-dir` | `prompt` | prompt 模板目录 |
-| `--result-dir` | `result` | 结果输出目录 |
-| `--predictions-jsonl` | 不保存 | 每条预测的输出路径 |
-| `--max-new-tokens` | `2048` | 最大生成 token 数 |
-| `--temperature` | `0.01` | 采样温度 |
-| `--top-p` | `0.95` | Nucleus 采样参数 |
-| `--dataset-filter` | 全部 | 只评测指定数据集，空格分隔 |
-| `--split-filter` | `test` | 只评测指定 split |
-| `--include-all-splits` | 关闭 | 评测所有 split（含 train/validation） |
-| `--max-samples-per-split` | `0`（全量） | 每个 split 最多取 N 条 |
-| `--prompt-names` | 全部 | 只运行指定 prompt 模板，空格分隔 |
-| `--prompt-style` | `two_layer` | `two_layer`（MCQ + open）或 `legacy` |
-| `--shuffle-repeats` | `5` | MCQ 选项随机排列重复次数 |
-| `--summary-columns` | `dataset_split` | 结果表列粒度：`dataset_split` 或 `dataset` |
-| `--eval-phase` | `none` | `screen`（自动限 50 条）或 `final`（全量） |
+存储数据集相关的**固定参数**：
 
-## 项目结构
-
-```
-TomTest/
-├── run.py          # 主循环：参数解析、批量推理、输出汇总
-├── data.py         # 数据加载与 schema 规范化
-├── prompt.py       # 模板加载、字段填充、MCQ 选项构造
-├── scoring.py      # 答案打分（mcq_letter / open_substring / yes_no）
-├── llm/
-│   ├── __init__.py
-│   └── client.py   # LLMClient，封装 OpenAI 兼容 API + 批量并发 + 自动重试
-├── prompt/         # prompt 模板目录（.txt 文件，每个文件一套策略）
-│   ├── main_mcq_abcd.txt
-│   ├── main_open.txt
-│   ├── Standard Zero-shot.txt
-│   └── ...
-├── TomDatasets/    # 数据集（见上方下载说明）
-├── result/         # 评测结果输出（自动创建）
-└── requirements.txt
+```yaml
+dataset: ToMBench
+path: ToMBench/test
+schema: MCQAnswer  # 从数据集自己的 schemas.py 导入
+default_prompt: zero_shot
 ```
 
-## 自定义 Prompt 模板
+### 实验配置（`experiment_config.yaml`）
 
-在 `prompt/` 目录下新建 `.txt` 文件即可自动加入评测，文件名作为模板标识出现在结果表中。
+存储实验相关的**可变参数**：
 
-模板内支持以下占位符：
-
-| 占位符 | 内容 |
+| 参数 | 说明 |
 |---|---|
-| `{Story}` | 故事文本 |
-| `{Question}` | 问题 |
-| `{Action}` | 动作序列（JSON） |
-| `{State}` | 状态信息（JSON） |
-| `{Meta}` | 元信息（JSON） |
-| `{options_block}` | MCQ 选项块（`two_layer` 模式自动填充） |
-| `{Story[full_story]}` | Story 的 full_story 子字段 |
+| `llm.model_name` | 模型名称 |
+| `llm.api_url` | API 地址 |
+| `llm.api_key` | API 密钥（支持环境变量 `${VAR_NAME}`） |
+| `llm.temperature` | 温度参数 |
+| `llm.max_tokens` | 最大 token 数 |
+| `llm.max_workers` | 最大线程数（默认 32） |
+| `llm.enable_thinking` | 是否启用思考模式（默认 True） |
+| `judge.model_name` | Judge 模型名称（可选） |
+| `judge.api_url` | Judge API 地址（可选） |
+| `judge.api_key` | Judge API 密钥（可选） |
+| `judge.temperature` | Judge 温度（通常为 0.0） |
+| `judge.max_tokens` | Judge 最大 token 数 |
+| `repeats` | 重复运行次数 |
+| `max_samples` | 最大样本数（0 = 全部） |
+| `datasets_path` | 数据集根目录 |
+| `results_path` | 结果输出目录 |
+
+## 支持的数据集
+
+| 数据集 | Schema | 二级指标 |
+|---|---|---|
+| ToMBench | `MCQAnswer` | 按 `Meta.ability` 分组 |
+
+更多数据集请参考 [新增数据集指南](docs/add_new_dataset.md) 添加。
+
+## 可用的 Schema
+
+每个数据集在自己的 `schemas.py` 中通过 `SCHEMAS` 字典定义 schema。
+
+```python
+# ToMBench/schemas.py 示例
+SCHEMAS = {
+    "MCQAnswer": MCQAnswer,
+    "JudgeAnswer": JudgeAnswer,  # 可选，供内部调用
+}
+```
+
+| Schema | 说明 |
+|---|---|
+| `MCQAnswer` | 多选题答案（A/B/C/D） |
+| `OpenAnswer` | 开放式答案（字符串） |
+| `YesNoAnswer` | 是非题答案（YES/NO） |
+| `MultipleChoice` | 多选题（任意数量选项） |
+| `JudgeAnswer` | LLM Judge 答案（CORRECT/INCORRECT） |
+
+## 扩展指南
+
+- [新增数据集指南](docs/add_new_dataset.md) - 如何添加新的评测数据集
+- [新增模型指南](docs/add_new_model.md) - 如何使用新模型进行评测
+
+## 公共函数（src/runner.py）
+
+`src/runner.py` 提供了数据集评测脚本之间的共享公共函数：
+
+| 函数 | 说明 |
+|---|---|
+| `load_dataset_config()` | 加载数据集配置 |
+| `load_experiment_config()` | 加载实验配置 |
+| `create_llm_client()` | 创建 LLM 客户端 |
+| `save_common_results()` | 保存评测结果（JSONL + JSON） |
+| `print_summary_stats()` | 打印统计摘要 |
+| `load_and_limit_data()` | 加载数据并限制样本数 |
+
+### 使用示例
+
+```python
+from src import runner
+
+# 加载配置
+dataset_config = runner.load_dataset_config("ToMBench/config.yaml")
+experiment_config = runner.load_experiment_config("experiment_config.yaml")
+
+# 创建客户端
+client = runner.create_llm_client(experiment_config["llm_config"])
+
+# 加载数据
+data = runner.load_and_limit_data(
+    subset=dataset_config["subset"],
+    datasets_path=experiment_config["datasets_path"],
+    max_samples=experiment_config["max_samples"],
+)
+
+# 使用数据集的 metrics 函数
+from ToMBench.metrics import compute_metrics
+metrics = compute_metrics(predictions, data)
+
+# 保存结果
+runner.save_common_results(
+    dataset_name="ToMBench",
+    model=experiment_config["llm_config"]["model_name"],
+    prompt_method=prompt_method,
+    all_predictions=all_predictions,
+    gold_answers=gold_answers,
+    all_metrics=all_metrics,
+    results_path=experiment_config["results_path"],
+)
+```
 
 ## 许可证
 
