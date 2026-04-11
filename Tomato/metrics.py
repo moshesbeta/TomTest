@@ -21,17 +21,7 @@ def compute_metrics(
     predictions: List[str],
     data: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """计算 Tomato 的 metrics
-
-    包括整体准确率和按 Meta.dimension 分组的三维分层准确率
-
-    Args:
-        predictions: 模型预测答案列表
-        data: 原始数据列表，须包含 '_mcq' 字段（含 gold_letter）
-
-    Returns:
-        包含基础指标和二级指标的字典
-    """
+    """整体准确率 + 按 Meta.dimension 三维分层的准确率与样本数（对齐 ToMBench：扁平二级指标 + counts）。"""
     gold_letters = [row["_mcq"]["gold_letter"] for row in data]
     assert len(predictions) == len(data) == len(gold_letters), "predictions/data/gold 长度须一致"
 
@@ -70,21 +60,7 @@ def compute_metrics(
         "correct": correct,
         "total": total,
         **secondary_metrics,
-        "dimension_metrics": {
-            "method_1": {
-                "name": "Meta.dimension[0]",
-                "category_accuracy": dim_acc[0],
-                "category_total": {k: dim_total[0][k] for k in sorted(dim_total[0].keys())},
-            },
-            "method_2": {
-                "name": "Meta.dimension[1]",
-                "category_accuracy": dim_acc[1],
-                "category_total": {k: dim_total[1][k] for k in sorted(dim_total[1].keys())},
-            },
-            "method_3": {
-                "name": "Meta.dimension[2]",
-                "category_accuracy": dim_acc[2],
-                "category_total": {k: dim_total[2][k] for k in sorted(dim_total[2].keys())},
-            },
-        },
+        "dimension_1_counts": {k: dim_total[0][k] for k in sorted(dim_total[0].keys())},
+        "dimension_2_counts": {k: dim_total[1][k] for k in sorted(dim_total[1].keys())},
+        "dimension_3_counts": {k: dim_total[2][k] for k in sorted(dim_total[2].keys())},
     }
