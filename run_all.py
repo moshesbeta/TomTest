@@ -11,10 +11,7 @@ from pathlib import Path
 # 数据集列表
 DATASETS = [
     "ToMBench",
-<<<<<<< HEAD
     "Tomato",
-=======
->>>>>>> upstream/main
 ]
 
 
