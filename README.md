@@ -112,12 +112,22 @@ python ToMBench/run.py
 
 ### 3. 查看结果
 
-评测结果保存在 `results/` 目录：
+评测结果保存在 `results/` 目录，按以下结构组织：
+
+```
+results/
+├── {dataset_name}/
+│   └── {model}/
+│       ├── config.json         # 配置信息（包含 dataset_config 和 experiment_config）
+│       ├── metrics.json        # 评测指标（avg_metrics + all_metrics）
+│       └── prediction.jsonl    # 详细预测结果（每行一个样本）
+```
 
 | 文件 | 内容 |
 |---|---|
-| `{dataset}_{model}_{prompt_method}_{timestamp}.jsonl` | 详细预测结果（每行一个样本） |
-| `{dataset}_{model}_{prompt_method}_{timestamp}.json` | 评测指标汇总 |
+| `config.json` | 所有配置信息（除 api_key 和 api_url 外） |
+| `metrics.json` | 评测指标（平均指标 + 各运行详细指标） |
+| `prediction.jsonl` | 预测结果（每行包含 repeat、sample_idx、prediction、gold_answer） |
 
 ## 配置文件说明
 
@@ -197,7 +207,7 @@ SCHEMAS = {
 | `load_dataset_config()` | 加载数据集配置 |
 | `load_experiment_config()` | 加载实验配置 |
 | `create_llm_client()` | 创建 LLM 客户端 |
-| `save_common_results()` | 保存评测结果（JSONL + JSON） |
+| `save_common_results()` | 保存评测结果（config.json + metrics.json + prediction.jsonl） |
 | `print_summary_stats()` | 打印统计摘要 |
 | `load_and_limit_data()` | 加载数据并限制样本数 |
 
@@ -233,7 +243,37 @@ runner.save_common_results(
     gold_answers=gold_answers,
     all_metrics=all_metrics,
     results_path=experiment_config["results_path"],
+    dataset_config=dataset_config,      # 可选，保存完整配置到 config.json
+    experiment_config=experiment_config,  # 可选，保存完整配置到 config.json
 )
+
+# 返回值: (config_path, metrics_path, prediction_path)
+```
+
+### save_common_results() 详细说明
+
+```python
+def save_common_results(
+    dataset_name: str,
+    model: str,
+    prompt_method: str,
+    all_predictions: List[List[str]],
+    gold_answers,
+    all_metrics: List[Dict[str, Any]],
+    results_path: str = "results",
+    metadata: Optional[Dict[str, Any]] = None,
+    dataset_config: Optional[Dict[str, Any]] = None,
+    experiment_config: Optional[Dict[str, Any]] = None,
+) -> Tuple[Path, Path, Path]:
+    """保存评测结果
+
+    结果保存结构: results/{dataset_name}/{model}/
+    - config.json: 包含所有配置（dataset_config + experiment_config，排除 api_key 和 api_url）
+    - metrics.json: 包含 avg_metrics 和 all_metrics
+    - prediction.jsonl: 包含每条样本的预测结果
+
+    返回: (config_path, metrics_path, prediction_path)
+    """
 ```
 
 ## 许可证

@@ -80,6 +80,8 @@ def main():
         gold_answers=gold_answers,
         all_metrics=all_metrics,
         results_path=experiment_config["results_path"],
+        dataset_config=dataset_config,
+        experiment_config=experiment_config,
     )
 
     # 打印统计摘要
