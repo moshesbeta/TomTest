@@ -270,6 +270,7 @@ def load_and_limit_data(
     subset: str,
     datasets_path: str = "datasets",
     max_samples: int = 0,
+    seed: int = 42,
 ) -> List[Dict[str, Any]]:
     """加载数据并限制样本数
 
@@ -277,11 +278,15 @@ def load_and_limit_data(
         subset: 数据集子集路径
         datasets_path: 数据集根目录
         max_samples: 最大样本数（0 表示不限制）
+        seed: 随机种子，用于可复现的随机抽样
 
     Returns:
         数据列表
     """
+    import random
+
     data = load_dataset(subset, datasets_root=datasets_path)
     if max_samples > 0:
-        data = data[:max_samples]
+        random.seed(seed)
+        data = random.sample(data, min(max_samples, len(data)))
     return data

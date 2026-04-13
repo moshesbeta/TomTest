@@ -26,7 +26,7 @@ def extract_gold_answers(data: List[Dict[str, Any]]) -> List[str]:
 
 def main():
     # 加载数据集配置
-    dataset_config = runner.load_dataset_config("ToMi/config.yaml")
+    dataset_config = runner.load_dataset_config("tasks/ToMi/config.yaml")
 
     # 加载实验配置
     experiment_config = runner.load_experiment_config("experiment_config.yaml")

@@ -29,11 +29,25 @@ datasets/
 │       └── all_wrong/
 │           ├── dataset_info.json
 │           └── data-00000-of-00001.arrow
-└── SocialIQA/
-    └── SIP/
-        └── all_wrong/
-            ├── dataset_info.json
-            └── data-00000-of-00001.arrow
+├── SocialIQA/
+│   └── SIP/
+│       └── all_wrong/
+│           ├── dataset_info.json
+│           └── data-00000-of-00001.arrow
+├── ToMBench/
+│   ├── test/
+│   │   ├── dataset_info.json
+│   │   └── data-00000-of-00001.arrow
+│   ├── train/
+│   └── SIP/
+├── Tomato/
+│   ├── test/
+│   ├── train/
+│   └── SIP/
+└── ToMQA/
+    ├── test/
+    ├── train/
+    └── validation/
 ```
 
 ## API
@@ -42,8 +56,8 @@ datasets/
 
 加载数据集。
 
-- `subset` (str): 子集路径，如 "ExploreToM/SIP/raw"
-- `datasets_root` (可选): 自定义根目录
+- `subset` (str): 子集路径，如 "ToMBench/test"、"Tomato/test"
+- `datasets_root` (可选): 自定义根目录，默认为 "datasets"
 
 返回 `List[Dict]`
 
@@ -52,3 +66,15 @@ datasets/
 列出所有可用子集。
 
 返回 `List[str]`
+
+## 数据集路径说明
+
+**重要**：数据集配置文件中的 `path` 字段应该使用相对路径，格式为 `{dataset_name}/{split}`，例如：
+
+```yaml
+# tasks/ToMBench/config.yaml
+dataset: ToMBench
+path: ToMBench/test  # 注意：没有 tasks/ 前缀
+```
+
+这样 `load_dataset` 会正确加载 `datasets/ToMBench/test/` 目录下的数据。

@@ -36,7 +36,7 @@ def extract_gold_answers(data):
 
 def main():
     # 加载数据集配置
-    dataset_config = runner.load_dataset_config("ToMQA/config.yaml")
+    dataset_config = runner.load_dataset_config("tasks/ToMQA/config.yaml")
 
     # 加载实验配置
     experiment_config = runner.load_experiment_config("experiment_config.yaml")

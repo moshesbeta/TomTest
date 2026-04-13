@@ -14,22 +14,35 @@
 ```
 TomTest/
 ├── datasets/              # 数据集（已规范化）
-├── ToMBench/              # ToMBench 评测目录
-│   ├── config.yaml         # 数据集配置（固定参数）
-│   ├── prompts.py          # prompt 方法
-│   ├── metrics.py          # metrics 计算（包含二级指标）
-│   └── run.py            # ToMBench 主评测脚本
+├── tasks/                 # 数据集评测代码
+│   ├── ToMi/
+│   │   ├── config.yaml
+│   │   ├── prompts.py
+│   │   ├── metrics.py
+│   │   ├── schemas.py
+│   │   └── run.py
+│   ├── ToMBench/
+│   ├── Tomato/
+│   └── ToMQA/
 ├── results/              # 评测结果输出
+├── tables/               # 评测结果表格
+│   ├── SUMMARY.md         # 总览表格（accuracy）
+│   └── {dataset_name}/    # 各数据集详细表格
+│       ├── 基础指标.md
+│       ├── 其他指标.md
+│       └── {model}/
+│           └── config.json
 ├── experiment_config.yaml  # 实验配置（LLM、repeat、路径等）
 ├── src/
 │   ├── llm/               # LLMClient（支持 batch_generate_structure）
 │   ├── dataloader/        # DataLoader
 │   ├── metrics/
-│   │   ├── schemas.py     # 通用的输出 schema
 │   │   └── common.py     # 通用 metrics 计算函数
 │   └── runner.py          # 评测运行器公共函数
 ├── docs/                 # 文档目录
-└── run_all.py            # 统一运行所有数据集
+├── run_all.py            # 统一运行所有数据集
+├── generate_dataset_tables.py  # 从 results 生成各数据集表格
+└── generate_summary.py         # 从表格生成总览汇总
 ```
 
 ## 核心优势：结构化输出
@@ -93,7 +106,8 @@ judge:
 
 # 实验参数
 repeats: 3
-max_samples: 0  # 0 表示使用全部样本
+max_samples: 0  # 0 表示使用全部样本，>0 则随机抽样
+seed: 42  # 随机种子（用于可复现的随机抽样）
 
 # 路径配置
 datasets_path: datasets
@@ -107,13 +121,27 @@ results_path: results
 python run_all.py
 
 # 或单独运行某个数据集
-python ToMBench/run.py
+python tasks/ToMBench/run.py
 ```
 
-### 3. 查看结果
+### 3. 生成结果表格
 
-评测结果保存在 `results/` 目录，按以下结构组织：
+```bash
+# 从 results 生成各数据集表格（基础指标.md、其他指标.md）
+python generate_dataset_tables.py
 
+# 从表格生成总览汇总（SUMMARY.md）
+python generate_summary.py
+
+# 或直接输出到终端
+python generate_summary.py --stdout
+```
+
+### 4. 查看结果
+
+评测结果保存在 `results/` 目录，表格保存在 `tables/` 目录：
+
+**results/ 结构**：
 ```
 results/
 ├── {dataset_name}/
@@ -123,11 +151,25 @@ results/
 │       └── prediction.jsonl    # 详细预测结果（每行一个样本）
 ```
 
+**tables/ 结构**：
+```
+tables/
+├── SUMMARY.md              # 总览表格（所有数据集 × 模型 × accuracy）
+└── {dataset_name}/         # 各数据集详细表格
+    ├── 基础指标.md          # accuracy、correct、total
+    ├── 其他指标.md           # 其他所有指标
+    └── {model}/
+        └── config.json       # 复制的配置文件
+```
+
 | 文件 | 内容 |
 |---|---|
 | `config.json` | 所有配置信息（除 api_key 和 api_url 外） |
 | `metrics.json` | 评测指标（平均指标 + 各运行详细指标） |
 | `prediction.jsonl` | 预测结果（每行包含 repeat、sample_idx、prediction、gold_answer） |
+| `SUMMARY.md` | 总览表格（所有数据集 × 模型 × accuracy） |
+| `基础指标.md` | 数据集详细指标（accuracy、correct、total） |
+| `其他指标.md` | 数据集详细指标（其他所有指标） |
 
 ## 配置文件说明
 
@@ -137,8 +179,8 @@ results/
 
 ```yaml
 dataset: ToMBench
-path: ToMBench/test
-schema: MCQAnswer  # 从数据集自己的 schemas.py 导入
+path: ToMBench/test  # 数据集子集路径（相对于 datasets/）
+schema: MCQAnswer   # 从数据集自己的 schemas.py 导入
 default_prompt: zero_shot
 ```
 
@@ -161,15 +203,19 @@ default_prompt: zero_shot
 | `judge.temperature` | Judge 温度（通常为 0.0） |
 | `judge.max_tokens` | Judge 最大 token 数 |
 | `repeats` | 重复运行次数 |
-| `max_samples` | 最大样本数（0 = 全部） |
+| `max_samples` | 最大样本数（0 = 全部，>0 = 随机抽样） |
+| `seed` | 随机种子（用于可复现的随机抽样） |
 | `datasets_path` | 数据集根目录 |
 | `results_path` | 结果输出目录 |
 
 ## 支持的数据集
 
-| 数据集 | Schema | 二级指标 |
+| 数据集 | Schema | 说明 |
 |---|---|---|
-| ToMBench | `MCQAnswer` | 按 `Meta.ability` 分组 |
+| ToMBench | `MCQAnswer` | Theory of Mind 基准测试 |
+| Tomato | `MCQAnswer` | Theory of Mind 多选题（支持选项 shuffle） |
+| ToMQA | `OpenAnswer` | Theory of Mind 问答 |
+| ToMi | `OneWordAnswer` | Theory of Mind 单词回答 |
 
 更多数据集请参考 [新增数据集指南](docs/add_new_dataset.md) 添加。
 
@@ -178,7 +224,7 @@ default_prompt: zero_shot
 每个数据集在自己的 `schemas.py` 中通过 `SCHEMAS` 字典定义 schema。
 
 ```python
-# ToMBench/schemas.py 示例
+# tasks/ToMBench/schemas.py 示例
 SCHEMAS = {
     "MCQAnswer": MCQAnswer,
     "JudgeAnswer": JudgeAnswer,  # 可选，供内部调用
@@ -191,6 +237,7 @@ SCHEMAS = {
 | `OpenAnswer` | 开放式答案（字符串） |
 | `YesNoAnswer` | 是非题答案（YES/NO） |
 | `MultipleChoice` | 多选题（任意数量选项） |
+| `OneWordAnswer` | 单词回答（如 ToMi） |
 | `JudgeAnswer` | LLM Judge 答案（CORRECT/INCORRECT） |
 
 ## 扩展指南
@@ -209,7 +256,7 @@ SCHEMAS = {
 | `create_llm_client()` | 创建 LLM 客户端 |
 | `save_common_results()` | 保存评测结果（config.json + metrics.json + prediction.jsonl） |
 | `print_summary_stats()` | 打印统计摘要 |
-| `load_and_limit_data()` | 加载数据并限制样本数 |
+| `load_and_limit_data()` | 加载数据并限制样本数（支持随机抽样） |
 
 ### 使用示例
 
@@ -217,21 +264,22 @@ SCHEMAS = {
 from src import runner
 
 # 加载配置
-dataset_config = runner.load_dataset_config("ToMBench/config.yaml")
+dataset_config = runner.load_dataset_config("tasks/ToMBench/config.yaml")
 experiment_config = runner.load_experiment_config("experiment_config.yaml")
 
 # 创建客户端
 client = runner.create_llm_client(experiment_config["llm_config"])
 
-# 加载数据
+# 加载数据（支持随机抽样）
 data = runner.load_and_limit_data(
     subset=dataset_config["subset"],
     datasets_path=experiment_config["datasets_path"],
     max_samples=experiment_config["max_samples"],
+    seed=experiment_config.get("seed", 42),
 )
 
 # 使用数据集的 metrics 函数
-from ToMBench.metrics import compute_metrics
+from tasks.ToMBench.metrics import compute_metrics
 metrics = compute_metrics(predictions, data)
 
 # 保存结果
@@ -275,6 +323,58 @@ def save_common_results(
     返回: (config_path, metrics_path, prediction_path)
     """
 ```
+
+### load_and_limit_data() 详细说明
+
+```python
+def load_and_limit_data(
+    subset: str,
+    datasets_path: str = "datasets",
+    max_samples: int = 0,
+    seed: int = 42,
+) -> List[Dict[str, Any]]:
+    """加载数据并限制样本数
+
+    Args:
+        subset: 数据集子集路径
+        datasets_path: 数据集根目录
+        max_samples: 最大样本数（0 表示不限制）
+        seed: 随机种子（用于可复现的随机抽样）
+
+    Returns:
+        数据列表
+    """
+```
+
+当 `max_samples > 0` 时，会随机抽取指定数量的样本，使用 `seed` 保证结果可复现。
+
+## 结果生成工具
+
+### generate_dataset_tables.py
+
+从 `results/` 目录读取 `metrics.json` 文件，为每个数据集生成详细表格：
+
+```bash
+python generate_dataset_tables.py --results-dir results --output-dir tables
+```
+
+输出：
+- `tables/{dataset}/基础指标.md` - accuracy、correct、total
+- `tables/{dataset}/其他指标.md` - 其他所有指标
+- `tables/{dataset}/{model}/config.json` - 复制的配置文件
+
+### generate_summary.py
+
+从 `tables/` 目录读取已生成的表格文件，生成总览汇总：
+
+```bash
+python generate_summary.py --tables-dir tables
+# 或直接输出到终端
+python generate_summary.py --stdout
+```
+
+输出：
+- `tables/SUMMARY.md` - 所有数据集 × 模型 × accuracy
 
 ## 许可证
 

@@ -21,7 +21,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 def main():
     # 加载数据集配置
-    dataset_config = runner.load_dataset_config("ToMBench/config.yaml")
+    dataset_config = runner.load_dataset_config("tasks/ToMBench/config.yaml")
 
     # 加载实验配置
     experiment_config = runner.load_experiment_config("experiment_config.yaml")

@@ -98,7 +98,7 @@ def shuffle_mcq_options(mcq: Dict[str, Any], seed: int) -> Dict[str, Any]:
 
 
 def main() -> None:
-    dataset_config = runner.load_dataset_config("Tomato/config.yaml")
+    dataset_config = runner.load_dataset_config("tasks/Tomato/config.yaml")
     experiment_config = runner.load_experiment_config("experiment_config.yaml")
 
     schema = dataset_config["schema"]

@@ -21,18 +21,24 @@ llm:
   api_url: https://api.deepseek.com/v1
   temperature: 0.6
   max_tokens: 32768
+  max_workers: 32
+  enable_thinking: true
+  top_p: 0.95
+  top_k: 20
+  presence_penalty: 2
 
 # LLM Judge 配置（可选，用于需要 judge 的数据集如 ToMi）
 judge:
-  model: deepseek-chat
+  model_name: deepseek-chat
   api_key: ${DEEPSEEK_API_KEY}
   api_url: https://api.deepseek.com/v1
   temperature: 0.0
-  max_tokens: 8
+  max_tokens: 4096
 
 # 实验参数
 repeats: 3
-max_samples: 0  # 0 表示使用全部样本
+max_samples: 0  # 0 表示使用全部样本，>0 则随机抽样
+seed: 42  # 随机种子（用于可复现的随机抽样）
 
 # 路径配置
 datasets_path: datasets
@@ -68,7 +74,7 @@ max_samples: 10  # 先测试 10 个样本
 
 ```bash
 # 评测单个数据集
-python ToMBench/run.py
+python tasks/ToMBench/run.py
 
 # 评测所有数据集
 python run_all.py
@@ -126,30 +132,36 @@ python run_all.py
 
 ### LLM 配置
 
-| 字段 | 说明 | 示例 |
+| 字段 | 说明 | 默认值 |
 |---|---|---|
-| `llm.model_name` | 模型名称 | `deepseek-chat`, `gpt-4o` |
-| `llm.api_url` | API 端点 URL | `https://api.deepseek.com/v1` |
-| `llm.api_key` | API 密钥（支持环境变量） | `${DEEPSEEK_API_KEY}` |
-| `llm.temperature` | 采样温度 | `0.6`（0.0 = 确定性，1.0 = 随机） |
+| `llm.model_name` | 模型名称 | - |
+| `llm.api_url` | API 端点 URL | - |
+| `llm.api_key` | API 密钥（支持环境变量） | - |
+| `llm.temperature` | 采样温度（0.0 = 确定性，1.0 = 随机） | `0.6` |
 | `llm.max_tokens` | 最大输出 token 数 | `32768` |
+| `llm.max_workers` | 最大线程数 | `32` |
+| `llm.enable_thinking` | 是否启用思考模式 | `True` |
+| `llm.top_p` | Nucleus sampling 参数 | `0.95` |
+| `llm.top_k` | Top-k sampling 参数 | `20` |
+| `llm.presence_penalty` | Presence penalty | `2` |
 
 ### Judge 配置（可选）
 
 | 字段 | 说明 | 示例 |
 |---|---|---|
-| `judge.model` | Judge 模型名称 | `deepseek-chat` |
+| `judge.model_name` | Judge 模型名称 | `deepseek-chat` |
 | `judge.api_url` | Judge API URL | `https://api.deepseek.com/v1` |
 | `judge.api_key` | Judge API 密钥 | `${DEEPSEEK_API_KEY}` |
 | `judge.temperature` | Judge 温度（通常为 0.0） | `0.0` |
-| `judge.max_tokens` | Judge 输出 token 数（通常很小） | `8` |
+| `judge.max_tokens` | Judge 输出 token 数 | `4096` |
 
 ### 实验参数
 
 | 字段 | 说明 | 默认值 |
 |---|---|---|
 | `repeats` | 重复运行次数（取平均） | `1` |
-| `max_samples` | 最大样本数（0 = 全部） | `0` |
+| `max_samples` | 最大样本数（0 = 全部，>0 = 随机抽样） | `0` |
+| `seed` | 随机种子（用于可复现的随机抽样） | `42` |
 | `datasets_path` | 数据集根目录 | `datasets` |
 | `results_path` | 结果输出目录 | `results` |
 
@@ -169,6 +181,7 @@ llm:
 
 repeats: 3
 max_samples: 100
+seed: 42
 ```
 
 ```bash
@@ -192,6 +205,8 @@ llm:
   max_tokens: 32768
 
 repeats: 3
+max_samples: 0
+seed: 42
 ```
 
 ```bash
@@ -199,7 +214,7 @@ export DEEPSEEK_API_KEY="sk-xxx"
 python run_all.py
 ```
 
-### 示例 3：冒烟测试
+### 示例 3：随机抽样测试
 
 `experiment_config.yaml`：
 
@@ -209,12 +224,13 @@ llm:
   api_key: ${DEEPSEEK_API_KEY}
   api_url: https://api.deepseek.com/v1
 
-max_samples: 10  # 只测试 10 个样本
+max_samples: 10  # 只测试 10 个样本（随机抽取）
+seed: 42  # 固定种子保证可复现
 ```
 
 ```bash
 export DEEPSEEK_API_KEY="sk-xxx"
-python ToMBench/run.py
+python tasks/ToMBench/run.py
 ```
 
 ## 批量评测多模型
@@ -260,7 +276,19 @@ for CONFIG in experiment_config_*.yaml; do
 done
 ```
 
-## 结果查看
+## 结果生成与查看
+
+### 生成表格
+
+```bash
+# 从 results 生成各数据集表格
+python generate_dataset_tables.py
+
+# 生成总览汇总
+python generate_summary.py
+```
+
+### 查看结果
 
 所有结果保存在 `results/` 目录：
 
@@ -269,11 +297,11 @@ done
 ls -lh results/
 
 # 查看最新结果
-cat results/$(ls -t results/*.json | head -1) | jq
+cat results/$(ls -t results/*/*/metrics.json | head -1) | jq
 
 # 比较不同模型的结果
-for f in results/*.json; do
-    echo "$f: $(cat $f | jq -r '.metrics[0].accuracy')"
+for f in results/*/*/metrics.json; do
+    echo "$f: $(cat $f | jq -r '.avg_metrics.accuracy')"
 done
 ```
 
@@ -284,7 +312,8 @@ done
 编辑 `experiment_config.yaml`：
 
 ```yaml
-max_samples: 3  # 只测试前 3 条样本
+max_samples: 3  # 只测试前 3 条样本（随机抽取）
+seed: 42  # 固定种子
 ```
 
 ### 2. 检查 API 连接
@@ -295,7 +324,7 @@ curl http://localhost:8000/v1/models
 
 ### 3. 查看详细日志
 
-在运行脚本时添加 `--verbose`（如果需要）
+在运行脚本时，LLM client 会输出调试信息（如 schema_desc、content 等）。
 
 ## 常见问题
 
@@ -317,7 +346,7 @@ echo $DEEPSEEK_API_KEY
 
 ### Q: 模型不支持结构化输出
 
-OpenAI 的最新模型（gpt-4o, gpt-4o-mini）支持结构化输出。如果模型不支持，需要修改代码使用旧的 `generate` 方法。
+框架会自动检测模型是否支持结构化输出。如果不支持，会自动降级到 JSON object 模式。
 
 ### Q: 如何设置不同的温度？
 
@@ -334,3 +363,14 @@ llm:
 llm:
   temperature: 0.9  # 更随机的输出
 ```
+
+### Q: 随机抽样是否可复现？
+
+是的，使用 `seed` 参数可以保证随机抽样的结果可复现：
+
+```yaml
+max_samples: 10
+seed: 42  # 固定种子
+```
+
+每次运行 `max_samples=10, seed=42` 的配置，都会抽取相同的 10 个样本。

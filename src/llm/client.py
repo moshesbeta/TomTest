@@ -112,6 +112,10 @@ class LLMClient:
         }
         self._lock = threading.Lock()
 
+        # parse API 支持检测（首次尝试失败即标记）
+        self._parse_supported = None  # None: 未尝试, True: 支持, False: 不支持
+        self._parse_lock = threading.Lock()
+
     @property
     def client(self):
         """延迟初始化 OpenAI 客户端"""
@@ -268,10 +272,11 @@ class LLMClient:
         response_object: Type[BaseModel],
         max_retry: int = 5,
     ) -> BaseModel:
-        """
-        调用 LLM，返回 Pydantic 对象（Structured Outputs 模式）。
+        """调用 LLM，返回 Pydantic 对象（自动适配不同模型）。
 
-        使用 chat.completions.parse，失败时重试直到 max_retry 耗尽。
+        两阶段降级策略：
+        1. 首选：chat.completions.parse() - 直接返回 Pydantic 对象，最佳体验
+        2. 降级：chat.completions.create() + json_object response_format + prompt 引导 + 解析验证
 
         Args:
             prompt: 提示词
@@ -281,7 +286,33 @@ class LLMClient:
         Returns:
             response_object 的实例，失败时返回空实例
         """
-        # 构建 extra_body
+        # 首次检测：尝试使用 parse API
+        if self._parse_supported is None:
+            with self._parse_lock:
+                if self._parse_supported is None:
+                    # 尝试一次，成功则标记支持，失败则不支持
+                    try:
+                        result = self._generate_with_parse(prompt, response_object, max_retry=1)
+                        self._parse_supported = True
+                        return result
+                    except Exception:
+                        self._parse_supported = False
+                        logging.warning(f"[LLM] Model {self.model} parse API failed, switching to JSON object mode")
+                        # 继续使用降级模式
+
+        # 根据检测结果选择模式
+        if self._parse_supported:
+            return self._generate_with_parse(prompt, response_object, max_retry)
+        else:
+            return self._generate_with_json_object(prompt, response_object, max_retry)
+
+    def _generate_with_parse(
+        self,
+        prompt: str,
+        response_object: Type[BaseModel],
+        max_retry: int = 5,
+    ) -> BaseModel:
+        """使用 parse API 的原生结构化输出。"""
         extra_body: Dict[str, Any] = {"top_k": self.top_k}
         if not self.enable_thinking:
             extra_body["chat_template_kwargs"] = {"enable_thinking": False}
@@ -289,19 +320,15 @@ class LLMClient:
         for attempt in range(max_retry):
             try:
                 start = time.time()
-
                 response = self.client.chat.completions.parse(
                     model=self.model,
-                    messages=[
-                        {"role": "user", "content": prompt},
-                    ],
+                    messages=[{"role": "user", "content": prompt}],
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                     presence_penalty=self.presence_penalty,
                     response_format=response_object,
                     extra_body=extra_body,
                 )
-
                 latency = time.time() - start
                 usage = LLMUsage(latency=latency)
                 if hasattr(response, "usage") and response.usage:
@@ -315,11 +342,130 @@ class LLMClient:
 
             except Exception as e:
                 import traceback
-                logging.warning(f"[LLM] generate_structure attempt {attempt + 1} failed: {e}\n{traceback.format_exc()}")
+                logging.warning(f"[LLM] parse mode attempt {attempt + 1} failed: {e}\n{traceback.format_exc()}")
 
-        logging.error(f"[LLM] generate_structure all {max_retry} attempts exhausted, returning empty.")
+        logging.error(f"[LLM] parse mode all {max_retry} attempts exhausted")
         self._track_usage(LLMUsage(), success=False)
         return response_object.model_construct()
+
+    def _generate_with_json_object(
+        self,
+        prompt: str,
+        response_object: Type[BaseModel],
+        max_retry: int = 5,
+    ) -> BaseModel:
+        """降级模式：使用 json_object response_format + prompt 引导 + 解析验证。"""
+        import json
+
+        # 构建 schema 描述
+        schema_desc = self._format_schema_for_prompt(response_object)
+        # 增强提示词
+        enhanced_prompt = f"""{prompt}
+
+---
+Response Format:
+{schema_desc}
+
+IMPORTANT: Respond with a valid JSON object that matches the schema above.
+Output ONLY the JSON object, no additional text or markdown formatting."""
+
+        extra_body: Dict[str, Any] = {"top_k": self.top_k}
+        if not self.enable_thinking:
+            extra_body["chat_template_kwargs"] = {"enable_thinking": False}
+
+        for attempt in range(max_retry):
+            try:
+                start = time.time()
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": enhanced_prompt}],
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    presence_penalty=self.presence_penalty,
+                    #response_format={"type": "json_object"},  # 使用 json_object
+                    extra_body=extra_body,
+                )
+
+                latency = time.time() - start
+                usage = LLMUsage(latency=latency)
+                if hasattr(response, "usage") and response.usage:
+                    usage.prompt_tokens = response.usage.prompt_tokens
+                    usage.completion_tokens = response.usage.completion_tokens
+                    usage.total_tokens = response.usage.total_tokens
+
+                content = response.choices[0].message.content or ""
+                # 提取 JSON
+                json_data = self._extract_json(content)
+                if json_data is None:
+                    raise ValueError(f"Failed to extract valid JSON: {content[:200]}")
+
+                # 用 Pydantic 验证（不符合就重试）
+                result = response_object.model_validate(json_data)
+                self._track_usage(usage, success=True)
+                return result
+
+            except Exception as e:
+                import traceback
+                logging.warning(f"[LLM] json_object mode attempt {attempt + 1} failed: {e}")
+
+        logging.error(f"[LLM] json_object mode all {max_retry} attempts exhausted")
+        self._track_usage(LLMUsage(), success=False)
+        return response_object.model_construct()
+
+    def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
+        """从文本中提取 JSON。"""
+        import json
+        import re
+
+        text = text.strip()
+
+        # 尝试 1: 直接解析
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # 尝试 2: 提取 ```json ... ``` 代码块
+        matches = re.findall(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        for match in matches:
+            try:
+                return json.loads(match.strip())
+            except json.JSONDecodeError:
+                continue
+
+        # 尝试 3: 提取 {} 大括号内容
+        matches = re.findall(r'\{[\s\S]*?\}', text)
+        for match in matches:
+            try:
+                return json.loads(match)
+            except json.JSONDecodeError:
+                continue
+
+        return None
+
+    def _format_schema_for_prompt(self, response_object: Type[BaseModel]) -> str:
+        """将 Schema 格式化为描述。"""
+        schema_dict = response_object.model_json_schema()
+        properties = schema_dict.get("properties", {})
+        required = schema_dict.get("required", [])
+
+        lines = ["Schema:"]
+        for field_name, field_schema in properties.items():
+            field_type = field_schema.get("type", "any")
+            is_required = field_name in required
+            enum = field_schema.get("enum")
+
+            if enum:
+                type_desc = f"one of: {', '.join(repr(v) for v in enum)}"
+            else:
+                type_desc = field_type
+
+            desc = field_schema.get("description", "")
+            req_str = " (required)" if is_required else " (optional)"
+
+            lines.append(f"  {field_name}: {type_desc}{req_str} - {desc}")
+
+        return "\n".join(lines)
 
     def batch_generate_structure(
         self,

@@ -25,7 +25,7 @@ def run_dataset(dataset: str) -> bool:
     Returns:
         是否成功
     """
-    run_script = Path(f"{dataset}/run.py")
+    run_script = Path(f"tasks/{dataset}/run.py")
     if not run_script.exists():
         print(f"[{dataset}] run.py not found, skipping.")
         return False
@@ -35,10 +35,20 @@ def run_dataset(dataset: str) -> bool:
     print(f"{'='*60}")
 
     try:
-        subprocess.run([sys.executable, str(run_script)], check=True)
+        result = subprocess.run(
+            [sys.executable, str(run_script)],
+            check=True,
+            capture_output=False,
+        )
         return True
     except subprocess.CalledProcessError as e:
         print(f"[{dataset}] Error: {e}")
+        print(f"Return code: {e.returncode}")
+        return False
+    except Exception as e:
+        print(f"[{dataset}] Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
