@@ -5,7 +5,7 @@ llm:
   temperature: 0.6
   max_tokens: 32768
   max_workers: 64
-  enable_thinking: false
+  enable_thinking: true
   system_prompt: ""
 
 judge:
@@ -19,7 +19,7 @@ judge:
   # 是否使用 LLM judge（如果为 True，会加载 judge_client 并用于评估）
   use_llm_judge: false
 
-repeats: 1
-max_samples: 100
+repeats: 3 # 使用API调用模型时为1，本地部署为3
+max_samples: 0 # 全量为0
 datasets_path: datasets
 results_path: results

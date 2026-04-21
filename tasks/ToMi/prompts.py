@@ -32,6 +32,6 @@ def build_prompt(row: Dict[str, Any], method: str = "zero_shot") -> str:
         格式化的 prompt
     """
     template = PROMPTS.get(method, PROMPTS["zero_shot"])
-    story = row.get("instruction", "")
-    question = row.get("input", "")
+    story = row.get("Story", {}).get("full_story", "")
+    question = row.get("Question", "")
     return template.format(story=story, question=question)

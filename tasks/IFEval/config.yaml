@@ -10,3 +10,6 @@ schema: OpenAnswer
 
 # 系统 prompt（可选，会覆盖 experiment_config.yaml 中的设置）
 system_prompt: ""
+
+# 是否使用 LLM judge（true/false 覆盖 experiment_config 的设置，不填则继承）
+# use_llm_judge:

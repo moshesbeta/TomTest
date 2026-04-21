@@ -42,7 +42,7 @@ def main():
     client = runner.create_llm_client(experiment_config["llm_config"], dataset_config)
 
     # 创建 Judge 客户端（如果配置了）
-    judge_client = runner.create_judge_client(experiment_config["judge_config"])
+    judge_client = runner.create_judge_client(experiment_config["judge_config"], dataset_config)
     if judge_client:
         judge_config = experiment_config.get("judge_config", {})
         print(f"Judge model: {judge_config.get('model_name', 'unknown')}")
@@ -108,6 +108,7 @@ def main():
         all_prompts=all_prompts,
         gold_answers=gold_answers,
         all_metrics=all_metrics,
+        sample_metas=[row.get("Meta") for row in eval_data],
     )
 
     runner.print_summary_stats(all_metrics, experiment_config["repeats"], len(eval_data))

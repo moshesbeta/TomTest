@@ -268,5 +268,4 @@ Output ONLY the JSON object, no additional text or markdown formatting."""
                 desc="Generating structure",
             ):
                 results.append(future.result())
-
         return results

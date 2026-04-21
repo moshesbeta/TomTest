@@ -1,0 +1,42 @@
+# 输入路径
+results_dir: results
+tables_dir: tables
+
+# 输出路径
+output_dir: analysis
+
+# 待分析模型（与 tables_config.yaml 的 models 写法完全一致）
+# 写法1：字符串（目录名 == 显示名）
+# model: Qwen3-8B
+# 写法2：字典（指定别名）
+model:
+  name: Qwen3-8B        # results/ 中的目录名
+  display: Qwen3-8B  # tables/ 中的列名和打印名
+
+# 可选基线模型（同样支持字符串或字典）
+baseline:
+  name: Qwen3-8B
+  display: Qwen3-8B-Think
+
+# 数据集（不填或 null 表示分析全部数据集，有 results 的都分析）
+dataset: ToMBench
+
+# LLM 分析配置
+llm:
+  model_name: Qwen3-8B
+  api_key: not-needed
+  api_url: http://0.0.0.0:8000/v1
+  temperature: 0.0
+  max_tokens: 4096
+  max_workers: 8
+  enable_thinking: false
+  system_prompt: ""
+
+# Bad case 抽取配置
+bad_cases:
+  n: 2          # 总抽取数量
+  seed: 42       # 随机种子
+
+# 功能开关
+no_llm_analysis: false   # true 时跳过 LLM 分析
+output_report: true      # 是否保存 Markdown 报告

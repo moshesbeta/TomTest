@@ -36,7 +36,7 @@ def _serialize_llm_response(response: LLMResponse) -> Dict[str, Any]:
     else:
         # 字符串或其他类型
         serialized_content = content
-
+    
     return {
         "content": serialized_content,
         "reasoning": response.reasoning,
@@ -61,6 +61,7 @@ def load_dataset_config(config_path: str) -> Dict[str, Any]:
             "method": config["method"],
             "schema": config["schema"],  # 必须指定 schema
             "system_prompt": config.get("system_prompt", ""),  # 可选的 system prompt
+            "use_llm_judge": config.get("use_llm_judge", None),  # 可选，覆盖 experiment_config 的 use_llm_judge
         }
 
 
@@ -144,16 +145,21 @@ def create_llm_client(llm_config: Dict[str, Any], dataset_config: Optional[Dict[
     return StructureClient.from_config(config)
 
 
-def create_judge_client(judge_config: Dict[str, Any]) -> Optional[Any]:
+def create_judge_client(judge_config: Dict[str, Any], dataset_config: Optional[Dict[str, Any]] = None) -> Optional[Any]:
     """创建 Judge 客户端（用于 LLM judge）
 
     Args:
         judge_config: judge 配置字典，包含 model_name, api_key, api_url, use_llm_judge 等
+        dataset_config: 可选的数据集配置，其中 use_llm_judge 字段（非 None 时）会覆盖 judge_config 的设置
 
     Returns:
         StructureClient 实例，如果 use_llm_judge 为 False 则返回 None
     """
-    if not judge_config.get("use_llm_judge", False):
+    use_llm_judge = judge_config.get("use_llm_judge", False)
+    # dataset 层的 use_llm_judge 非 None 时覆盖 experiment_config 的设置
+    if dataset_config is not None and dataset_config.get("use_llm_judge") is not None:
+        use_llm_judge = dataset_config["use_llm_judge"]
+    if not use_llm_judge:
         return None
     return create_llm_client(judge_config)
 
@@ -207,6 +213,7 @@ def save_common_results(
     gold_answers: Union[List[str], List[List[str]]],
     all_metrics: List[Dict[str, Any]],
     metadata: Optional[Dict[str, Any]] = None,
+    sample_metas: Optional[List[Optional[Dict[str, Any]]]] = None,
 ) -> Tuple[Path, Path, Path]:
     """保存评测结果
 
@@ -234,7 +241,7 @@ def save_common_results(
 
     # 创建目录结构: results/dataset_name/model/exp_{timestamp}/
     results_dir = Path(results_path)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = os.environ.get("RUN_TIMESTAMP") or datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = results_dir / dataset_name / model / f"exp_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -309,6 +316,10 @@ def save_common_results(
                 # 添加 prompt
                 if repeat_prompts and sample_idx < len(repeat_prompts):
                     record["prompt"] = repeat_prompts[sample_idx]
+
+                # 添加 meta
+                if sample_metas and sample_idx < len(sample_metas) and sample_metas[sample_idx] is not None:
+                    record["meta"] = sample_metas[sample_idx]
 
                 # 添加 is_correct 和 error_reason
                 if per_sample_results and sample_idx < len(per_sample_results):

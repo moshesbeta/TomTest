@@ -3,8 +3,10 @@
 运行所有数据集的评测脚本。
 所有配置通过 experiment_config.yaml 管理，无需命令行参数。
 """
+import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 
@@ -49,6 +51,7 @@ def run_dataset(dataset: str) -> bool:
             [sys.executable, str(run_script)],
             check=True,
             capture_output=False,
+            env=os.environ,
         )
         return True
     except subprocess.CalledProcessError as e:
@@ -63,6 +66,10 @@ def run_dataset(dataset: str) -> bool:
 
 
 def main():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    os.environ["RUN_TIMESTAMP"] = timestamp
+    print(f"Run timestamp: {timestamp}")
+
     for dataset in DATASETS:
         run_dataset(dataset)
 

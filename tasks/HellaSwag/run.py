@@ -100,7 +100,7 @@ def main() -> None:
     client = runner.create_llm_client(experiment_config["llm_config"], dataset_config)
 
     # 创建 Judge 客户端（如果配置了）
-    judge_client = runner.create_judge_client(experiment_config["judge_config"])
+    judge_client = runner.create_judge_client(experiment_config["judge_config"], dataset_config)
 
     data = runner.load_and_limit_data(
         subset=dataset_config["path"],
@@ -165,6 +165,7 @@ def main() -> None:
         all_prompts=all_prompts,
         gold_answers=[[row["_mcq"]["gold_letter"] for row in repeat_data[i]] for i in range(repeats)],
         all_metrics=all_metrics,
+        sample_metas=[row.get("Meta") for row in data],
     )
 
     runner.print_summary_stats(all_metrics, repeats, n)

@@ -37,10 +37,6 @@ wheels/
 *.tmp
 *.log
 
-# HuggingFace cache
-datasets/.cache/
-.cache/
-
 # Results directory
 results/
 result/
@@ -60,3 +56,9 @@ ENV/
 scripts/
 experiment_configs/
 logs/
+__pycache__/
+*.pyc
+*.pyo
+datasets/
+datasets_examples/
+analysis/

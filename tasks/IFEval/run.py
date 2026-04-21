@@ -75,6 +75,7 @@ def main():
         all_prompts=all_prompts,
         gold_answers=gold_answers,
         all_metrics=all_metrics,
+        sample_metas=[row.get("Meta") for row in data],
     )
 
     avg_strict = sum(m["prompt_accuracy_strict"] for m in all_metrics) / len(all_metrics)

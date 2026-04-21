@@ -42,7 +42,7 @@ def main():
     client = runner.create_llm_client(experiment_config["llm_config"], dataset_config)
 
     # 创建 Judge 客户端（如果配置了）
-    judge_client = runner.create_judge_client(experiment_config["judge_config"])
+    judge_client = runner.create_judge_client(experiment_config["judge_config"], dataset_config)
 
     # 加载数据
     data = runner.load_and_limit_data(
@@ -94,6 +94,7 @@ def main():
         all_prompts=all_prompts,
         gold_answers=gold_answers,
         all_metrics=all_metrics,
+        sample_metas=[row.get("Meta") for row in data],
     )
 
     # 打印统计摘要

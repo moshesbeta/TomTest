@@ -84,7 +84,7 @@ def main() -> None:
     client = runner.create_llm_client(experiment_config["llm_config"], dataset_config)
 
     # Judge client (not used for RecToM, but for consistency)
-    judge_client = runner.create_judge_client(experiment_config["judge_config"])
+    judge_client = runner.create_judge_client(experiment_config["judge_config"], dataset_config)
 
     data = runner.load_and_limit_data(
         subset=dataset_config["path"],
@@ -136,6 +136,7 @@ def main() -> None:
         all_prompts=all_prompts,
         gold_answers=[[list(g) for g in get_gold_answers(data)] for _ in range(experiment_config["repeats"])],
         all_metrics=all_metrics,
+        sample_metas=[row.get("Meta") for row in data],
     )
 
     runner.print_summary_stats(all_metrics, experiment_config["repeats"], len(data))
