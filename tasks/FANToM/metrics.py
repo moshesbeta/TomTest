@@ -69,15 +69,6 @@ def _get_correct_texts(row: Dict[str, Any]) -> List[str]:
     return [str(ca)]
 
 
-def _get_wrong_texts(row: Dict[str, Any]) -> List[str]:
-    ans = row.get("Answer", {}) if isinstance(row.get("Answer"), dict) else {}
-    wa = ans.get("Wrong_Answer", [])
-    if isinstance(wa, list):
-        return [str(x) for x in wa if str(x).strip()]
-    if wa is None:
-        return []
-    return [str(wa)]
-
 
 def _binary_letter_to_choice_text(row: Dict[str, Any], letter: Optional[str]) -> Optional[str]:
     if not letter:
@@ -178,47 +169,6 @@ def _weighted_f1_binary(pred: Sequence[Optional[str]], gold: Sequence[Optional[s
     return weighted / total_support
 
 
-def _eval_binary_accuracy(
-    predictions: List[Optional[str]],
-    data: List[Dict[str, Any]],
-) -> Tuple[List[bool], float]:
-    hits: List[bool] = []
-    for pred, row in zip(predictions, data):
-        mcq = row.get("_mcq", {}) if isinstance(row.get("_mcq"), dict) else {}
-        gold_letter = str(mcq.get("gold_letter", "") or "").strip().upper()
-        p = str(pred).strip().upper() if pred is not None else ""
-        hit = bool(p) and bool(gold_letter) and p == gold_letter
-        hits.append(hit)
-    return hits, _safe_div(sum(hits), len(hits))
-
-
-def _eval_list_accuracy(
-    predictions: List[Optional[Any]],
-    data: List[Dict[str, Any]],
-) -> Tuple[List[bool], float]:
-    hits: List[bool] = []
-    for pred, row in zip(predictions, data):
-        mcq = row.get("_mcq", {}) if isinstance(row.get("_mcq"), dict) else {}
-        gold_labels = mcq.get("gold_labels", [])
-        if not isinstance(gold_labels, list):
-            gold_labels = []
-        gold_set = {str(x).strip().upper() for x in gold_labels if str(x).strip()}
-
-        if pred is None:
-            hits.append(False)
-            continue
-        if isinstance(pred, str):
-            pred_list = [pred]
-        elif isinstance(pred, (list, tuple, set)):
-            pred_list = list(pred)
-        else:
-            pred_list = [pred]
-        pred_set = {str(x).strip().upper() for x in pred_list if str(x).strip()}
-        hits.append(pred_set == gold_set)
-
-    return hits, _safe_div(sum(hits), len(hits))
-
-
 def _eval_qa_with_llm_judge(
     predictions: List[Optional[str]],
     data: List[Dict[str, Any]],
@@ -291,7 +241,10 @@ def _aggregate_all_by_snippet(
         qtype = _question_type(row)
         if snip not in by_snip:
             by_snip[snip] = {}
-        by_snip[snip][qtype] = bool(ok)
+
+        if qtype not in by_snip[snip]:
+            by_snip[snip][qtype] = True
+        by_snip[snip][qtype] = by_snip[snip][qtype] and bool(ok)
 
     included = 0
     hits = 0
