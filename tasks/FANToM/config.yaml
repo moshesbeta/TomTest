@@ -1,0 +1,18 @@
+# FANToM dataset config
+
+dataset: FANToM
+path: FanToM/test
+
+# Prompt method (must exist in tasks/FANToM/prompts.py PROMPTS)
+method: ZS_vanilla
+
+# FANToM mixes multiple task types, so we load a schema list in run.py:
+# - OpenAnswer: open-ended QA (factQA, beliefQAs)
+# - MCQAnswer2: binary A/B choice (answerability/infoaccess binary, beliefQAs_choice)
+# - MultiLabelAnswer: multi-label (answerability/infoaccess list)
+schema: ["OpenAnswer", "MCQAnswer2", "MultiLabelAnswer"]
+
+system_prompt: ""
+
+# FANToM QA tasks require an LLM judge for correctness.
+use_llm_judge: true

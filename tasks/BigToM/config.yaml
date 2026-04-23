@@ -1,0 +1,16 @@
+# BigToM 数据集配置
+
+dataset: BigToM
+path: BigToM/test
+
+# 默认 prompt 方法
+method: ZS_0shot
+
+# 结构化输出的 schema 类名（从 src.schemas 导入）
+schema: MCQAnswer2
+
+# 系统 prompt（可选，会覆盖 experiment_config.yaml 中的设置）
+system_prompt: ""
+
+# 是否使用 LLM judge（true/false 覆盖 experiment_config 的设置，不填则继承）
+# use_llm_judge:
