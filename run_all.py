@@ -26,6 +26,8 @@ DATASETS = [
     "ToMChallenges",
     "ToMi",
     "ToMQA",
+    "BigToM",
+    "FANToM",
 ]
 
 
