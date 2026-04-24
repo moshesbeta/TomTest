@@ -32,5 +32,6 @@
       "enable_thinking": true,
       "use_llm_judge": false
     }
-  }
+  },
+  "exp_dir": "exp_20260422_200816"
 }

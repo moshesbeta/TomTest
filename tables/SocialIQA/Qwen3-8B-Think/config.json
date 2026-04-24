@@ -32,5 +32,6 @@
       "enable_thinking": false,
       "use_llm_judge": false
     }
-  }
+  },
+  "exp_dir": "exp_20260421_231310"
 }
