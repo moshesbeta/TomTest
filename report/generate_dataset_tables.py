@@ -10,15 +10,14 @@ Dataset Tables Generator
 """
 import json
 import re
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 
 
 def collect_metrics(
     results_dir: str,
     exp_suffix: str = None,
-    dataset_filter: Optional[str] = None,
+    dataset_filter: Optional[Union[str, List[str]]] = None,
     models_filter: Optional[List[str]] = None,
 ) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """收集所有数据集和模型的 metrics
@@ -42,8 +41,10 @@ def collect_metrics(
         dataset_name = dataset_dir.name
 
         # 过滤数据集
-        if dataset_filter and dataset_name != dataset_filter:
-            continue
+        if dataset_filter:
+            allowed = {dataset_filter} if isinstance(dataset_filter, str) else set(dataset_filter)
+            if dataset_name not in allowed:
+                continue
 
         metrics_data[dataset_name] = {}
 
@@ -62,7 +63,11 @@ def collect_metrics(
                 # 指定后缀
                 exp_dir = model_dir / f"exp_{exp_suffix}"
                 if not exp_dir.exists():
-                    continue
+                    raise FileNotFoundError(
+                        f"指定的实验目录不存在: {exp_dir}\n"
+                        f"  数据集: {dataset_name}  模型: {model_name}\n"
+                        f"  可用实验: {[d.name for d in sorted(model_dir.glob('exp_*'))]}"
+                    )
             else:
                 # 自动选择最新的实验目录
                 exp_dirs = sorted(model_dir.glob("exp_*"))
@@ -443,7 +448,7 @@ def generate_dataset_tables(
     results_dir: str = "results",
     output_dir: str = "tables",
     exp_suffix: str = None,
-    dataset_filter: Optional[str] = None,
+    dataset_filter: Optional[Union[str, List[str]]] = None,
     models_filter: Optional[List[str]] = None,
     model_display_names: Optional[Dict[str, str]] = None,
 ) -> None:
@@ -487,8 +492,21 @@ def generate_dataset_tables(
             existing_models: Set[str] = {col for row_vals in existing_table.values() for col in row_vals}
             overlapping = [m for m in display_names if m in existing_models]
             if overlapping:
-                print(f"\n数据集 [{dataset_name}] 中以下模型已有结果: {', '.join(overlapping)}")
-                ans = input("是否覆盖？(y/n): ").strip().lower()
+                _basic_keys = ["accuracy", "correct", "total"]
+                for model in overlapping:
+                    print(f"\n数据集 [{dataset_name}] 模型 [{model}] 已有结果：")
+                    print(f"  {'指标':<12} {'旧值':>12} {'新值':>12}")
+                    print(f"  {'-' * 38}")
+                    for metric in _basic_keys:
+                        old_val = existing_table.get(metric, {}).get(model, "-")
+                        new_raw = display_metrics_data[dataset_name].get(model, {}).get("avg_metrics", {}).get(metric, "")
+                        new_val = format_value(new_raw) if new_raw != "" else "-"
+                        print(f"  {metric:<12} {old_val:>12} {new_val:>12}")
+                try:
+                    ans = input("\n是否覆盖以上模型的旧结果？(y/n，默认 n): ").strip().lower()
+                except EOFError:
+                    ans = "n"
+                    print("n（非交互模式，默认不覆盖）")
                 overwrite = (ans == "y")
 
         basic_metrics_content = generate_basic_metrics_table(dataset_name, display_names, display_metrics_data, existing_path=basic_md, overwrite=overwrite)
@@ -518,7 +536,12 @@ def generate_dataset_tables(
                 display_name = name_map.get(dir_name, dir_name)
                 output_model_dir = dataset_report_dir / display_name
                 output_model_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(config_file, output_model_dir / "config.json")
+                with open(config_file, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+                if exp_dir:
+                    config_data["exp_dir"] = exp_dir.name
+                with open(output_model_dir / "config.json", "w", encoding="utf-8") as f:
+                    json.dump(config_data, f, ensure_ascii=False, indent=2)
 
         print(f"数据集 [{dataset_name}] 报告已保存到: {dataset_report_dir}/")
 
@@ -533,7 +556,10 @@ def main():
         results_dir: results
         output_dir: tables
         exp_suffix: 20240101_120000   # 可选，不填则自动选最新实验
-        dataset: ToMQA                # 可选，只处理该数据集
+        dataset: ToMQA                # 可选，单个数据集
+        dataset:                      # 或列表，只处理其中的数据集
+          - ToMQA
+          - ToMi
         models:                       # 可选，只处理这些模型
           - Qwen3-8B                  # 字符串：目录名即显示名
           - name: some-long-name      # 字典：指定显示名

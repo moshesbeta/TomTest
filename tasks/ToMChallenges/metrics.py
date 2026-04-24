@@ -13,6 +13,7 @@ def compute_metrics(predictions: List[str], data: List[Dict[str, Any]], judge_cl
 
     total = len(predictions)
     correct = 0
+    per_sample_results = []
 
     by_order_stats: Dict[str, Dict[str, int]] = {}
 
@@ -21,6 +22,10 @@ def compute_metrics(predictions: List[str], data: List[Dict[str, Any]], judge_cl
         gold = mcq.get("gold_letter")
         hit = bool(pred) and bool(gold) and pred == gold
         correct += int(hit)
+        per_sample_results.append({
+            "is_correct": hit,
+            "error_reason": None if hit else ("content_none" if not pred else "wrong_answer"),
+        })
 
         meta = row.get("Meta") if isinstance(row.get("Meta"), dict) else {}
         order_key = str((meta.get("order") if isinstance(meta, dict) else None) or "unknown")
@@ -44,4 +49,5 @@ def compute_metrics(predictions: List[str], data: List[Dict[str, Any]], judge_cl
         **secondary_metrics,
         "by_order": by_order,
         "order_counts": order_counts,
+        "per_sample_results": per_sample_results,
     }

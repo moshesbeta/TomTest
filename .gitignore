@@ -63,3 +63,5 @@ datasets/
 datasets_examples/
 analysis/
 experiment_config_ds.yaml
+experiment_config_glm5.yaml
+CLAUDE.md

@@ -266,11 +266,18 @@ class PredictionLoader:
     def __init__(self, results_dir: str):
         self.results_dir = Path(results_dir)
 
-    def find_latest_exp_dir(self, dataset: str, model_dir_name: str) -> Optional[Path]:
-        """返回最新的 exp_* 目录（按目录名排序取最后一个）。"""
+    def find_latest_exp_dir(self, dataset: str, model_dir_name: str, exp_dir_name: Optional[str] = None) -> Optional[Path]:
+        """返回指定或最新的 exp_* 目录。
+
+        Args:
+            exp_dir_name: 指定目录名（如 "exp_20260422_200816"），None 则自动选最新。
+        """
         base = self.results_dir / dataset / model_dir_name
         if not base.exists():
             return None
+        if exp_dir_name:
+            exp_dir = base / exp_dir_name
+            return exp_dir if exp_dir.exists() else None
         exp_dirs = sorted(base.glob("exp_*"))
         return exp_dirs[-1] if exp_dirs else None
 
@@ -283,6 +290,7 @@ class PredictionLoader:
         baseline_other_metrics: Optional[Dict] = None,
         model_display: str = "",
         baseline_display: str = "",
+        exp_dir_name: Optional[str] = None,
     ) -> List[Dict]:
         """按优先级分层抽取 bad cases，返回最多 n 条。
 
@@ -291,7 +299,7 @@ class PredictionLoader:
         - Tier 2：wrong_rate > 0.5 的维度 & wrong_count >= max_repeat * 0.5
         - Tier 3：其余有错的样本（按 wrong_count 降序）
         """
-        exp_dir = self.find_latest_exp_dir(dataset, model_dir_name)
+        exp_dir = self.find_latest_exp_dir(dataset, model_dir_name, exp_dir_name)
         if exp_dir is None:
             print(f"[WARN] 未找到 results 目录: {self.results_dir / dataset / model_dir_name}")
             return []
@@ -623,8 +631,18 @@ class ReportPrinter:
         for metric, vals in flat:
             _print_row(metric, vals)
 
-        sorted_flat = sorted(flat, key=lambda x: (x[1].get("model") or 0), reverse=True)
-        print("\n  按指标值降序")
+        if baseline_display:
+            def _sort_key(item):
+                m = item[1].get("model") or 0
+                b = item[1].get("baseline") or 0
+                return m - b
+            sort_label = "按与基线差值降序（↑越高越好）"
+        else:
+            def _sort_key(item):
+                return item[1].get("model") or 0
+            sort_label = "按指标值降序"
+        sorted_flat = sorted(flat, key=_sort_key, reverse=True)
+        print(f"\n  {sort_label}")
         _print_hdr()
         for metric, vals in sorted_flat:
             _print_row(metric, vals)
@@ -788,8 +806,18 @@ class ReportGenerator:
             lines.append("### 原始顺序\n")
             _md_table(flat)
 
-            sorted_flat = sorted(flat, key=lambda x: (x[1].get("model") or 0), reverse=True)
-            lines.append("### 按指标值降序\n")
+            if baseline_display:
+                def _sort_key(item):
+                    m = item[1].get("model") or 0
+                    b = item[1].get("baseline") or 0
+                    return m - b
+                sort_section_label = "### 按与基线差值降序（↑越高越好）\n"
+            else:
+                def _sort_key(item):
+                    return item[1].get("model") or 0
+                sort_section_label = "### 按指标值降序\n"
+            sorted_flat = sorted(flat, key=_sort_key, reverse=True)
+            lines.append(sort_section_label)
             _md_table(sorted_flat)
 
         # Bad cases
@@ -919,6 +947,18 @@ def main() -> None:
         basic = ml.load_basic_metrics(ds, model_display, baseline_display)
         other = ml.load_other_metrics(ds, model_display, baseline_display)
 
+        # 从 tables config.json 读取实验时间戳，确保 bad case 来自同一次实验
+        exp_dir_name: Optional[str] = None
+        tables_cfg_path = Path(tables_dir) / ds / model_display / "config.json"
+        if tables_cfg_path.exists():
+            with open(tables_cfg_path, encoding="utf-8") as f:
+                tables_cfg_data = json.load(f)
+            exp_dir_name = tables_cfg_data.get("exp_dir")
+        if exp_dir_name:
+            print(f"[INFO] 使用实验目录: {exp_dir_name}")
+        else:
+            print(f"[WARN] tables config.json 中无 exp_dir，将使用最新实验目录")
+
         # 打印指标
         printer.print_header(ds, model_display, baseline_display)
         printer.print_basic_metrics(basic, model_display, baseline_display)
@@ -933,6 +973,7 @@ def main() -> None:
             baseline_other_metrics=other if baseline_display else None,
             model_display=model_display,
             baseline_display=baseline_display or "",
+            exp_dir_name=exp_dir_name,
         )
 
         # LLM 批量分析

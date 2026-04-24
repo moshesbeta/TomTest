@@ -9,32 +9,32 @@ output_dir: analysis
 # 写法1：字符串（目录名 == 显示名）
 # model: Qwen3-8B
 # 写法2：字典（指定别名）
-model:
+baseline:
   name: Qwen3-8B        # results/ 中的目录名
-  display: Qwen3-8B-Think  # tables/ 中的列名和打印名
+  display: Qwen3-8B-Think # tables/ 中的列名和打印名
 
 # 可选基线模型（同样支持字符串或字典）
-baseline:
-  # name: Qwen3-8B
-  # display: Qwen3-8B-Think
+model:
+  name: deepseek-r1
+  display: DeepSeek-R1-Think
 
 # 数据集（不填或 null 表示分析全部数据集，有 results 的都分析）
 dataset: ToMBench
 
 # LLM 分析配置
 llm:
-  model_name: Qwen3-8B
-  api_key: not-needed
-  api_url: http://0.0.0.0:8000/v1
+  model_name: 
+  api_key: 
+  api_url: 
   temperature: 0.0
   max_tokens: 4096
-  max_workers: 8
+  max_workers: 1
   enable_thinking: true
   system_prompt: ""
 
 # Bad case 抽取配置
 bad_cases:
-  n: 1          # 总抽取数量
+  n: 5          # 总抽取数量
   seed: 42       # 随机种子
 
 # 功能开关

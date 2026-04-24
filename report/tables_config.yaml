@@ -8,11 +8,22 @@ output_dir: tables
 
 # 实验时间后缀，用于指定某次实验的结果，如: '20240101_120000'
 # 不填或 null 则自动选择每个数据集最新的实验
-exp_suffix: '20260421_231310'
+exp_suffix: '20260422_145022'
 
 # 只处理指定数据集，如: ToMQA
 # 不填或 null 则处理全部数据集
-dataset:
+dataset: 
+  - Belief_R
+  - FictionalQA
+  - HellaSwag
+  - RecToM
+  - SimpleTom
+  - SocialIQA
+  - Tomato
+  - ToMBench
+  - BigTom
+  - FANToM
+
 
 # 只处理指定模型，可填多个
 # 不填或 null 则处理全部模型
@@ -21,5 +32,5 @@ dataset:
 #   字典：name 为目录名，display 为显示名（用于表格列名和 config 文件夹名）
 models:
   # - Qwen3-8B
-  - name: Qwen3-8B
-    display: Qwen3-8B-Think
+  - name: Qwen3.5-9B
+    display: Qwen3.5-9B-NoThink
