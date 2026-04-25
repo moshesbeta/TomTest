@@ -18,6 +18,13 @@ class MCQAnswer(BaseModel):
     )
 
 
+class MCQAnswer5(BaseModel):
+    """五选一多选题答案 schema（选项字母 A/B/C/D/E）"""
+    answer: Literal["A", "B", "C", "D", "E"] = Field(
+        description="The answer to the multiple choice question, must be one of A, B, C, D, E"
+    )
+
+
 class MCQAnswer3(BaseModel):
     """三选一多选题答案 schema（选项字母 A/B/C，用于 SocialIQA）"""
     answer: Literal["A", "B", "C"] = Field(

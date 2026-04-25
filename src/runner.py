@@ -81,6 +81,7 @@ def load_schema(schema_name: Optional[Union[str, list]]) -> Optional[Union[Type,
 
     from src.schemas import (
         MCQAnswer,
+        MCQAnswer5,
         MCQAnswer2,
         MCQAnswer3,
         MCQAnswer3Lower,
@@ -92,6 +93,7 @@ def load_schema(schema_name: Optional[Union[str, list]]) -> Optional[Union[Type,
 
     schema_map = {
         "MCQAnswer": MCQAnswer,
+        "MCQAnswer5": MCQAnswer5,
         "MCQAnswer2": MCQAnswer2,
         "MCQAnswer3": MCQAnswer3,
         "MCQAnswer3Lower": MCQAnswer3Lower,

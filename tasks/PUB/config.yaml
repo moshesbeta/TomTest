@@ -1,0 +1,17 @@
+# PUB 数据集配置
+
+dataset: PUB
+path: PUB/test
+
+# 默认 prompt 方法（见 PUB/prompts.py）
+method: v2_generate
+
+# 结构化输出的 schema 类名（从 src.schemas 导入）
+# PUB 按样本的选项数动态选择 2/3/4/5 选项 schema
+schema: ["MCQAnswer2", "MCQAnswer3", "MCQAnswer", "MCQAnswer5"]
+
+# 系统 prompt（可选，会覆盖 experiment_config.yaml 中的设置）
+system_prompt: ""
+
+# 是否使用 LLM judge（true/false 覆盖 experiment_config 的设置，不填则继承）
+# use_llm_judge:
