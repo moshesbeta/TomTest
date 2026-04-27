@@ -1,0 +1,6 @@
+dataset: SocialBench
+path: SocialBench/test
+method: unified_open_eval
+schema: OpenAnswer
+system_prompt: ""
+use_llm_judge: false

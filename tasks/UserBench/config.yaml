@@ -1,0 +1,6 @@
+dataset: UserBench
+path: UserBench/test
+method: multi_id_recommend
+schema: ResourceIdListAnswer
+system_prompt: ""
+use_llm_judge: false

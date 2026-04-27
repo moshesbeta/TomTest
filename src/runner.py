@@ -89,6 +89,7 @@ def load_schema(schema_name: Optional[Union[str, list]]) -> Optional[Union[Type,
         OneWordAnswer,
         JudgeAnswer,
         MultiLabelAnswer,
+        ResourceIdListAnswer,
     )
 
     schema_map = {
@@ -101,6 +102,7 @@ def load_schema(schema_name: Optional[Union[str, list]]) -> Optional[Union[Type,
         "OneWordAnswer": OneWordAnswer,
         "JudgeAnswer": JudgeAnswer,
         "MultiLabelAnswer": MultiLabelAnswer,
+        "ResourceIdListAnswer": ResourceIdListAnswer,
     }
 
     if isinstance(schema_name, list):
