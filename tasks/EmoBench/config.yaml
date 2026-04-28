@@ -1,0 +1,6 @@
+dataset: EmoBench
+path: EmoBench/test
+method: zero_shot_mcq
+schema: OpenAnswer
+system_prompt: ""
+use_llm_judge: false

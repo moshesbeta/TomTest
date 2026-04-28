@@ -91,3 +91,37 @@ class MultiLabelAnswer(BaseModel):
                 normalized.append(token)
                 seen.add(token)
         return normalized
+
+
+class ResourceIdListAnswer(BaseModel):
+    """资源 ID 列表 schema（用于 UserBench，返回如 ['R17', 'F18']）"""
+
+    answer: List[str] = Field(
+        default_factory=list,
+        description="A list of resource IDs only, such as ['R17', 'F18'], one ID per active travel aspect.",
+    )
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def _normalize_answer(cls, value):
+        if value is None:
+            return []
+
+        import re
+
+        if isinstance(value, str):
+            items = re.findall(r"[AFHRCafhrc]\d+", value)
+        elif isinstance(value, (list, tuple, set)):
+            items = list(value)
+        else:
+            items = [value]
+
+        normalized = []
+        seen = set()
+        pattern = re.compile(r"^[AFHRC]\d+$")
+        for item in items:
+            token = str(item).strip().upper()
+            if token and pattern.match(token) and token not in seen:
+                normalized.append(token)
+                seen.add(token)
+        return normalized
