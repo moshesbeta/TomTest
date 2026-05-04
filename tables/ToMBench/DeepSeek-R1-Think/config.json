@@ -5,7 +5,7 @@
   "repeats": 1,
   "dataset_config": {
     "dataset": "ToMBench",
-    "path": "ToMBench/test",
+    "path": "ToMBench/test/en",
     "method": "VANILLA",
     "schema": "MCQAnswer",
     "system_prompt": "",
@@ -16,7 +16,7 @@
       "model_name": "deepseek-r1",
       "temperature": 0.6,
       "max_tokens": 32768,
-      "max_workers": 32,
+      "max_workers": 8,
       "enable_thinking": true,
       "system_prompt": ""
     },
@@ -33,5 +33,5 @@
       "use_llm_judge": false
     }
   },
-  "exp_dir": "exp_20260422_200816"
+  "exp_dir": "exp_20260429_203207"
 }

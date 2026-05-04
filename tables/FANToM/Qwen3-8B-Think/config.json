@@ -1,15 +1,19 @@
 {
-  "dataset": "ToMBench",
+  "dataset": "FANToM",
   "model": "Qwen3-8B",
-  "prompt_method": "VANILLA",
+  "prompt_method": "ZS_vanilla",
   "repeats": 3,
   "dataset_config": {
-    "dataset": "ToMBench",
-    "path": "ToMBench/test/en",
-    "method": "VANILLA",
-    "schema": "MCQAnswer",
+    "dataset": "FANToM",
+    "path": "FanToM/test",
+    "method": "ZS_vanilla",
+    "schema": [
+      "OpenAnswer",
+      "MCQAnswer2",
+      "MultiLabelAnswer"
+    ],
     "system_prompt": "",
-    "use_llm_judge": null
+    "use_llm_judge": true
   },
   "experiment_config": {
     "llm_config": {

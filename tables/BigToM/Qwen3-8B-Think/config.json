@@ -1,13 +1,13 @@
 {
-  "dataset": "ToMBench",
+  "dataset": "BigToM",
   "model": "Qwen3-8B",
-  "prompt_method": "VANILLA",
+  "prompt_method": "ZS_0shot",
   "repeats": 3,
   "dataset_config": {
-    "dataset": "ToMBench",
-    "path": "ToMBench/test/en",
-    "method": "VANILLA",
-    "schema": "MCQAnswer",
+    "dataset": "BigToM",
+    "path": "BigToM/test",
+    "method": "ZS_0shot",
+    "schema": "MCQAnswer2",
     "system_prompt": "",
     "use_llm_judge": null
   },

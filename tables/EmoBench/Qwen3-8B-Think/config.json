@@ -1,15 +1,15 @@
 {
-  "dataset": "ToMBench",
+  "dataset": "EmoBench",
   "model": "Qwen3-8B",
-  "prompt_method": "VANILLA",
+  "prompt_method": "zero_shot_mcq",
   "repeats": 3,
   "dataset_config": {
-    "dataset": "ToMBench",
-    "path": "ToMBench/test/en",
-    "method": "VANILLA",
-    "schema": "MCQAnswer",
+    "dataset": "EmoBench",
+    "path": "EmoBench/test",
+    "method": "zero_shot_mcq",
+    "schema": "OpenAnswer",
     "system_prompt": "",
-    "use_llm_judge": null
+    "use_llm_judge": false
   },
   "experiment_config": {
     "llm_config": {
